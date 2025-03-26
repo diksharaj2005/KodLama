@@ -11,7 +11,7 @@
 
 # MY SOLUTION 
 to prevent the loss of lives due to natural is to provide a space where the people can find important safety measures to be taken during a natural calamity 
-link to my wesite:https://disastermanagement05.netlify.app/
+
 
 
 My solution is 
@@ -22,4 +22,4 @@ My solution is
 - news about weather condition
 - videos to learn
 
-![my-proj](https://raw.githubusercontent.com/debajyotidasgupta/disaster-management/master/images/scr.png)
+
