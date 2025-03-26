@@ -1,342 +1,282 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Chat elements
-    const chatToggle = document.getElementById('chatbot-toggle');
-    const chatContainer = document.getElementById('chatbot-container');
-    const closeChat = document.getElementById('close-chat');
-    const sendBtn = document.getElementById('send-btn');
-    const userInput = document.getElementById('user-input');
-    const chatMessages = document.getElementById('chat-messages');
+    // Chat elements with null checks
+    const chatElements = {
+        toggle: document.getElementById('chatbot-toggle'),
+        container: document.getElementById('chatbot-container'),
+        close: document.getElementById('close-chat'),
+        sendBtn: document.getElementById('send-btn'),
+        input: document.getElementById('user-input'),
+        messages: document.getElementById('chat-messages')
+    };
 
-    // Enhanced Disaster Knowledge Base
+    // Validate essential elements exist
+    if (Object.values(chatElements).some(el => !el)) {
+        console.error('Critical chat elements missing!');
+        return;
+    }
+
+    // Enhanced Disaster Knowledge Base with structured responses
     const disasterKB = {
-        "earthquake": {
-            steps: ["Drop to the ground", "Take cover under sturdy furniture", "Hold on until shaking stops"],
-            faq: {
-                "what to do": "Drop, Cover, and Hold On during shaking. After shaking stops, check for injuries and damage.",
-                "how to prepare": "Secure heavy furniture, prepare an emergency kit, and identify safe spots in each room.",
-                "during": "Stay indoors if you're inside, stay outside if you're outside. Avoid windows and heavy objects.",
-                "after": "Check for injuries and damage. Be prepared for aftershocks."
-            }
+        disasters: ["earthquake", "tsunami", "hurricane", "wildfire", "flood"],
+        
+        responses: {
+            greeting: `Hello! I'm DisasterBot, your emergency preparedness assistant. I can help with:
+                <ul>
+                    <li>Earthquake safety procedures</li>
+                    <li>Tsunami evacuation plans</li>
+                    <li>Hurricane preparedness</li>
+                    <li>Wildfire danger information</li>
+                    <li>Flood risk assessment</li>
+                </ul>
+                <p>Try asking: "What should I do during an earthquake?" or "How do I prepare for a hurricane?"</p>
+                <p>For immediate help, say <strong>"EMERGENCY"</strong> followed by your situation.</p>`,
+                
+            emergency: `🚨 <strong>EMERGENCY ASSISTANCE ACTIVATED</strong> 🚨
+                <p>Please describe your situation clearly (example: "Earthquake happening now" or "Flood waters rising").</p>
+                <p>While you wait for my response, here are emergency contacts:</p>
+                <ul>
+                    <li>Police/Fire/Medical: <strong>911</strong></li>
+                    <li>Coast Guard: <strong>+1-202-372-2100</strong></li>
+                    <li>FEMA: <strong>1-800-621-3362</strong></li>
+                </ul>`,
+                
+            unknown: `I'm not sure I understand. For immediate help, contact local emergency services.
+                <p>Here are some things I can help with:</p>
+                <ul>
+                    <li>Safety steps for different disasters</li>
+                    <li>Preparation checklists</li>
+                    <li>Emergency contact information</li>
+                    <li>What to do after a disaster</li>
+                </ul>
+                <p>Try asking: "How do I prepare for earthquakes?" or "What's in a basic emergency kit?"</p>`,
+                
+            contacts: `Here are important emergency contacts:
+                <ul>
+                    <li><strong>Medical Emergency:</strong> 911</li>
+                    <li><strong>Fire Department:</strong> 911</li>
+                    <li><strong>Police:</strong> 911</li>
+                    <li><strong>Poison Control:</strong> 1-800-222-1222</li>
+                    <li><strong>FEMA:</strong> 1-800-621-3362</li>
+                    <li><strong>Red Cross:</strong> 1-800-RED-CROSS</li>
+                </ul>`,
+                
+            tips: [
+                "Remember: During any disaster, stay calm and follow official instructions.",
+                "Pro tip: Keep your emergency kit in an easily accessible location.",
+                "Did you know? You should practice your evacuation route twice a year.",
+                "Important: Always have multiple ways to receive emergency alerts.",
+                "Safety first: Check your smoke detectors and fire extinguishers regularly."
+            ]
         },
-        "tsunami": {
-            steps: ["Move to higher ground immediately", "Follow evacuation routes", "Stay away from the coast"],
-            faq: {
-                "what to do": "Move immediately to higher ground or inland. Don't wait for official warnings.",
-                "how to prepare": "Know your community's evacuation routes and plan. Have emergency supplies ready.",
-                "warning signs": "Strong earthquakes, unusual ocean behavior (rapid rising or draining), or loud ocean roars",
-                "after": "Stay away until officials declare it safe - danger may last for hours"
-            }
+        
+        // Disaster-specific information (keep your existing structure)
+        // ... (your existing earthquake, tsunami, etc. data)
+        
+        // Helper methods
+        getRandomTip: function() {
+            return this.responses.tips[Math.floor(Math.random() * this.responses.tips.length)];
         },
-        "hurricane": {
-            steps: ["Follow evacuation orders if given", "Stay indoors away from windows", "Turn off utilities if instructed"],
-            faq: {
-                "what to do": "Stay informed through weather alerts. Secure outdoor items. Have supplies for several days.",
-                "how to prepare": "Know your evacuation zone, prepare emergency kit, reinforce your home.",
-                "during": "Stay in interior room away from windows. Don't go outside during eye of storm."
-            }
+        
+        formatSteps: function(steps) {
+            return steps.map((step, i) => `${i+1}. ${step}`).join('<br>');
         },
-        "general": {
-            greeting: "Hello! I'm DisasterBot. Ask me about earthquake, tsunami, hurricane, or other disaster preparedness.",
-            emergency: "EMERGENCY MODE: Please state your situation clearly (e.g., 'earthquake happening now')",
-            unknown: "I'm not sure about that. For immediate help, contact local emergency services. Try asking about: earthquake, tsunami, or hurricane."
+        
+        getFAQResponse: function(disaster, question) {
+            const faq = this[disaster]?.faq;
+            if (!faq) return null;
+            
+            for (const [keyword, answer] of Object.entries(faq)) {
+                if (question.includes(keyword)) {
+                    return answer;
+                }
+            }
+            return null;
         }
     };
 
-    // Initialize chat
-    function initChat() {
-        chatContainer.style.display = 'none';
-        addBotMessage(getGreeting());
-    }
-
-    // Toggle chat visibility
-    chatToggle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const isVisible = chatContainer.style.display === 'block';
-        chatContainer.style.display = isVisible ? 'none' : 'block';
+    // Chat state management
+    const chatState = {
+        isEmergency: false,
+        lastInteraction: null,
         
-        if (!isVisible) {
-            userInput.focus();
-            // Only show greeting if chat is empty
-            if (chatMessages.children.length === 0) {
-                addBotMessage(getGreeting());
+        init: function() {
+            chatElements.container.style.display = 'none';
+            if (!localStorage.getItem('chatHistory')) {
+                this.sendGreeting();
             }
+        },
+        
+        sendGreeting: function() {
+            if (chatElements.messages.children.length === 0) {
+                this.addBotMessage(disasterKB.responses.greeting, true);
+            }
+        },
+        
+        setEmergencyMode: function(enable) {
+            this.isEmergency = enable;
+            chatElements.container.classList.toggle('emergency-mode', enable);
+            if (enable) {
+                this.addBotMessage(disasterKB.responses.emergency, true);
+            }
+        },
+        
+        addUserMessage: function(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user-message';
+            messageDiv.textContent = text;
+            chatElements.messages.appendChild(messageDiv);
+            this.scrollToBottom();
+        },
+        
+        addBotMessage: function(text, isHTML = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            
+            if (isHTML) {
+                messageDiv.innerHTML = text;
+            } else {
+                // Auto-link URLs and phone numbers
+                const linkedText = text
+                    .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>')
+                    .replace(/(\d{3}-\d{3}-\d{4})/g, '<a href="tel:$1">$1</a>');
+                messageDiv.innerHTML = linkedText;
+            }
+            
+            chatElements.messages.appendChild(messageDiv);
+            this.scrollToBottom();
+        },
+        
+        showTypingIndicator: function() {
+            const indicator = document.createElement('div');
+            indicator.className = 'typing-indicator';
+            indicator.innerHTML = '<span></span><span></span><span></span>';
+            chatElements.messages.appendChild(indicator);
+            this.scrollToBottom();
+            return indicator;
+        },
+        
+        scrollToBottom: function() {
+            chatElements.messages.scrollTop = chatElements.messages.scrollHeight;
         }
-    });
+    };
 
-    // Close chat
-    closeChat.addEventListener('click', function(e) {
-        e.stopPropagation();
-        chatContainer.style.display = 'none';
-    });
-
-    // Handle sending messages
-    function handleSend() {
-        const message = userInput.value.trim();
-        if (message) {
-            addUserMessage(message);
-            userInput.value = '';
+    // Message processing
+    const messageProcessor = {
+        handleUserMessage: function(message) {
+            chatState.addUserMessage(message);
+            chatElements.input.value = '';
+            
+            const typingIndicator = chatState.showTypingIndicator();
+            
             setTimeout(() => {
-                processInput(message);
-            }, 300);
-        }
-        userInput.focus();
-    }
-
-    // Event listeners
-    sendBtn.addEventListener('click', handleSend);
-    userInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') handleSend();
-    });
-
-    // Message display functions
-    function addUserMessage(text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'user-message';
-        msgDiv.textContent = text;
-        chatMessages.appendChild(msgDiv);
-        scrollToBottom();
-    }
-
-    function addBotMessage(text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'bot-message';
+                chatElements.messages.removeChild(typingIndicator);
+                this.generateResponse(message);
+            }, 800 + Math.random() * 700);
+        },
         
-        // Handle bullet points and line breaks
-        const formattedText = text.replace(/\n/g, '<br>')
-                                 .replace(/\•/g, '•');
-        msgDiv.innerHTML = formattedText;
-        
-        chatMessages.appendChild(msgDiv);
-        scrollToBottom();
-    }
-
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // Get context-aware greeting
-    function getGreeting() {
-        const path = window.location.pathname;
-        const disaster = path.split('/').pop().replace('.html', '');
-        
-        if (disaster && disasterKB[disaster]) {
-            return `Welcome to ${disaster.toUpperCase()} preparedness! Ask me anything about ${disaster} safety.\n\nTry asking:\n• "What should I do during ${disaster}?"\n• "How to prepare for ${disaster}?"`;
-        }
-        return disasterKB.general.greeting;
-    }
-
-    // Process user input with improved matching
-    function processInput(input) {
-        const lowerInput = input.toLowerCase();
-        const currentDisaster = window.location.pathname.split('/').pop().replace('.html', '');
-        
-        // Emergency detection
-        if (/(emergency|help|now|happening|urgent)/.test(lowerInput)) {
-            return handleEmergency(lowerInput, currentDisaster);
-        }
-        
-        // Check for greetings
-        if (/(hello|hi|hey)/.test(lowerInput)) {
-            return addBotMessage(getGreeting());
-        }
-        
-        // Check for disaster-specific questions
-        if (currentDisaster && disasterKB[currentDisaster]) {
-            const response = checkDisasterKB(lowerInput, currentDisaster);
-            if (response) return addBotMessage(response);
-        }
-        
-        // General disaster questions
-        for (const disaster in disasterKB) {
-            if (disaster !== "general" && lowerInput.includes(disaster)) {
-                const response = checkDisasterKB(lowerInput, disaster);
-                if (response) return addBotMessage(response);
+        generateResponse: function(message) {
+            const lowerMsg = message.toLowerCase();
+            
+            // Emergency mode activation
+            if (lowerMsg.includes("emergency")) {
+                chatState.setEmergencyMode(true);
+                return;
             }
-        }
-        
-        // Default unknown response
-        addBotMessage(disasterKB.general.unknown);
-    }
-
-    function checkDisasterKB(input, disaster) {
-        const kb = disasterKB[disaster].faq;
-        
-        // Check for common question patterns
-        if (/(what should i do|what to do)/.test(input)) {
-            return kb["what to do"] || kb["during"];
-        }
-        
-        if (/(how to prepare|how do i prepare)/.test(input)) {
-            return kb["how to prepare"];
-        }
-        
-        if (/(warning signs|how to know)/.test(input)) {
-            return kb["warning signs"];
-        }
-        
-        if (/(after|afterwards|what next)/.test(input)) {
-            return kb["after"];
-        }
-        
-        // Check for specific keywords
-        for (const [keyword, response] of Object.entries(kb)) {
-            if (input.includes(keyword)) {
-                return response;
-            }
-        }
-        
-        return null;
-    }
-
-    function handleEmergency(input, disaster) {
-        // Clear chat to focus on emergency information
-        chatMessages.innerHTML = '';
-    
-        // Add urgent emergency header with visual alert
-        const emergencyHeader = document.createElement('div');
-        emergencyHeader.className = 'bot-message emergency-header';
-        emergencyHeader.innerHTML = `
-            <div class="emergency-alert">
-                <span class="alert-icon">🚨</span>
-                <h3>EMERGENCY MODE ACTIVATED</h3>
-            </div>
-            <p>I'll guide you through critical steps for your safety.</p>
-        `;
-        chatMessages.appendChild(emergencyHeader);
-    
-        // Try to detect disaster type from input if not from URL
-        if (!disaster) {
-            for (const disasterType in disasterKB) {
-                if (disasterType !== "general" && input.toLowerCase().includes(disasterType)) {
-                    disaster = disasterType;
-                    break;
+            
+            // Check for specific disaster queries
+            for (const disaster of disasterKB.disasters) {
+                if (lowerMsg.includes(disaster)) {
+                    // Check for FAQ questions first
+                    const faqResponse = disasterKB.getFAQResponse(disaster, lowerMsg);
+                    if (faqResponse) {
+                        chatState.addBotMessage(faqResponse);
+                        return;
+                    }
+                    
+                    // Default to steps if no FAQ match
+                    const steps = disasterKB[disaster]?.steps;
+                    if (steps) {
+                        const formattedSteps = `<strong>${disaster.toUpperCase()} SAFETY STEPS:</strong><br>${disasterKB.formatSteps(steps)}`;
+                        chatState.addBotMessage(formattedSteps, true);
+                        return;
+                    }
                 }
             }
+            
+            // Special commands
+            if (lowerMsg.includes("contact") || lowerMsg.includes("number")) {
+                chatState.addBotMessage(disasterKB.responses.contacts, true);
+            } 
+            else if (lowerMsg.includes("help") || lowerMsg.includes("hi") || lowerMsg.includes("hello")) {
+                chatState.addBotMessage(disasterKB.responses.greeting, true);
+            }
+            else {
+                // Add a random tip to the unknown response
+                const unknownResponse = `${disasterKB.responses.unknown}<br><br><em>${disasterKB.getRandomTip()}</em>`;
+                chatState.addBotMessage(unknownResponse, true);
+            }
         }
-    
-        if (disaster && disasterKB[disaster]) {
-            // Add disaster-specific emergency procedures
-            const disasterHeader = document.createElement('div');
-            disasterHeader.className = 'bot-message disaster-header';
-            disasterHeader.innerHTML = `
-                <h4>${disaster.toUpperCase()} EMERGENCY PROCEDURES</h4>
-                <p>Follow these steps <strong>immediately</strong>:</p>
-            `;
-            chatMessages.appendChild(disasterHeader);
-    
-            // Add numbered emergency steps with detailed instructions
-            disasterKB[disaster].steps.forEach((step, index) => {
-                const stepDiv = document.createElement('div');
-                stepDiv.className = 'bot-message emergency-step';
-                stepDiv.innerHTML = `
-                    <div class="step-number">${index + 1}</div>
-                    <div class="step-content">${step}</div>
-                `;
-                chatMessages.appendChild(stepDiv);
-            });
-    
-            // Add real-time action items
-            const actionItems = document.createElement('div');
-            actionItems.className = 'bot-message action-items';
-            actionItems.innerHTML = `
-                <h4>RIGHT NOW:</h4>
-                <ul>
-                    <li>🔹 <strong>Assess your surroundings</strong> for immediate dangers</li>
-                    <li>🔹 <strong>Protect yourself</strong> first before helping others</li>
-                    <li>🔹 <strong>Evacuate if necessary</strong> using safest route</li>
-                    <li>🔹 <strong>Avoid hazards</strong> like downed power lines or damaged structures</li>
-                </ul>
-            `;
-            chatMessages.appendChild(actionItems);
-    
-            // Add post-emergency guidance
-            const postEmergency = document.createElement('div');
-            postEmergency.className = 'bot-message post-emergency';
-            postEmergency.innerHTML = `
-                <h4>AFTER THE IMMEDIATE DANGER:</h4>
-                <ol>
-                    <li>Check for injuries and provide first aid if trained</li>
-                    <li>Listen to emergency broadcasts for updates</li>
-                    <li>Inspect your location for damage and hazards</li>
-                    <li>Help neighbors if it's safe to do so</li>
-                    <li>Document damage for insurance claims</li>
-                </ol>
-            `;
-            chatMessages.appendChild(postEmergency);
-        } else {
-            // If disaster type isn't specified or recognized
-            const unknownDisaster = document.createElement('div');
-            unknownDisaster.className = 'bot-message unknown-disaster';
-            unknownDisaster.innerHTML = `
-                <div class="warning-alert">
-                    <span class="alert-icon">⚠️</span>
-                    <h4>EMERGENCY DETECTED</h4>
-                </div>
-                <p>Please specify the emergency type clearly, for example:</p>
-                <ul>
-                    <li>"Earthquake happening now"</li>
-                    <li>"Tsunami warning in my area"</li>
-                    <li>"I'm in a hurricane emergency"</li>
-                </ul>
-                <p>Available emergency types: earthquake, tsunami, hurricane</p>
-            `;
-            chatMessages.appendChild(unknownDisaster);
-        }
-    
-        // Add emergency contact information
-        const contacts = document.createElement('div');
-        contacts.className = 'bot-message emergency-contacts';
-        contacts.innerHTML = `
-            <h4>EMERGENCY CONTACTS</h4>
-            <div class="contact-grid">
-                <div class="contact-item">
-                    <div class="contact-icon">🚑</div>
-                    <div class="contact-info">
-                        <strong>Medical Emergency</strong>
-                        <div>911 (or local equivalent)</div>
-                    </div>
-                </div>
-                <div class="contact-item">
-                    <div class="contact-icon">🚒</div>
-                    <div class="contact-info">
-                        <strong>Fire Department</strong>
-                        <div>911 (or local equivalent)</div>
-                    </div>
-                </div>
-                <div class="contact-item">
-                    <div class="contact-icon">👮</div>
-                    <div class="contact-info">
-                        <strong>Police</strong>
-                        <div>911 (or local equivalent)</div>
-                    </div>
-                </div>
-                <div class="contact-item">
-                    <div class="contact-icon">🌊</div>
-                    <div class="contact-info">
-                        <strong>Coast Guard</strong>
-                        <div>+1-202-372-2100</div>
-                    </div>
-                </div>
-            </div>
-            <p class="disclaimer"><strong>Note:</strong> If phone lines are down, try text messaging or social media to contact help.</p>
-        `;
-        chatMessages.appendChild(contacts);
-    
-        // Add final safety reminder
-        const reminder = document.createElement('div');
-        reminder.className = 'bot-message safety-reminder';
-        reminder.innerHTML = `
-            <div class="reminder-content">
-                <span class="reminder-icon">❗</span>
-                <p><strong>Remember:</strong> Your safety is most important. Follow official instructions from local authorities.</p>
-            </div>
-        `;
-        chatMessages.appendChild(reminder);
-    
-        // Scroll to show all emergency information
-        scrollToBottom();
+    };
+
+    // Event handlers
+    function setupEventListeners() {
+        // Toggle chat visibility
+        chatElements.toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = chatElements.container.style.display === 'block';
+            chatElements.container.style.animation = isVisible ? 'fadeOut 0.3s ease' : 'fadeIn 0.3s ease';
+            chatElements.container.style.display = isVisible ? 'none' : 'block';
+            
+            if (!isVisible) {
+                chatElements.input.focus();
+                chatState.sendGreeting();
+            }
+        });
+
+        // Close chat
+        chatElements.close.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chatElements.container.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => {
+                chatElements.container.style.display = 'none';
+                chatElements.container.style.animation = '';
+            }, 300);
+        });
+
+        // Send message handlers
+        chatElements.sendBtn.addEventListener('click', debounce(() => {
+            const message = chatElements.input.value.trim();
+            if (message) messageProcessor.handleUserMessage(message);
+        }, 300));
+
+        chatElements.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && chatElements.input.value.trim()) {
+                messageProcessor.handleUserMessage(chatElements.input.value.trim());
+            }
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!chatElements.container.contains(e.target) && e.target !== chatElements.toggle) {
+                chatElements.container.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => {
+                    chatElements.container.style.display = 'none';
+                    chatElements.container.style.animation = '';
+                }, 300);
+            }
+        });
     }
 
-    // Initialize the chat
-    initChat();
+    // Debounce function
+    function debounce(func, delay) {
+        let timeoutId;
+        return function() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, arguments), delay);
+        };
+    }
+
+    // Initialize
+    chatState.init();
+    setupEventListeners();
 });
