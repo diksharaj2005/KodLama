@@ -22,4 +22,4 @@ My solution is
 - news about weather condition
 - videos to learn
 
-![my-proj](https://raw.githubusercontent.com/debajyotidasgupta/disaster-management/master/images/scr.png)
+
